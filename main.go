@@ -10,6 +10,7 @@ import (
 	"os"
 	"todo/database"
 	"todo/handler"
+	"todo/middlewares"
 )
 
 type Login struct {
@@ -36,12 +37,18 @@ func main() {
 	defer database.CloseDB()                                                                                   // closing the DB
 
 	// LogIn
-	r := mux.NewRouter()
+	r := mux.NewRouter().StrictSlash(true)
 	r.HandleFunc("/register", handler.Register).Methods("POST")
 	r.HandleFunc("/login", handler.Login).Methods("POST")
-	r.HandleFunc("/logout", handler.Logout).Methods("POST")
-	r.HandleFunc("/CreateTask", handler.CreateTask).Methods("POST")
-	r.HandleFunc("/", health)
+
+	protected := r.PathPrefix("/").Subrouter()
+	protected.Use(middlewares.AuthMiddleware)
+	protected.HandleFunc("/logout", handler.Logout).Methods("POST")
+	protected.HandleFunc("/CreateTask", handler.CreateTask).Methods("POST")
+	protected.HandleFunc("/GetAllTodos", handler.GetAllTodos).Methods("GET")
+	protected.HandleFunc("/DeleteTaskById/{id}", handler.DeleteTodo).Methods("DELETE")
+	protected.HandleFunc("/UpdateTodoById/{id}", handler.UpdateTodo).Methods("PUT")
+	protected.HandleFunc("/", health)
 
 	http.ListenAndServe(":8080", r)
 }

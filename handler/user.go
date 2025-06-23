@@ -1,8 +1,8 @@
 package handler
 
 import (
+	"database/sql"
 	"encoding/json"
-	"github.com/go-playground/validator/v10"
 	"net/http"
 	"time"
 	"todo/database"
@@ -26,11 +26,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	v := validator.New()
-	if err := v.Struct(user); err != nil {
-		http.Error(w, "Failed to validate request body", http.StatusBadRequest)
-		return
-	}
+	//v := validator.New()
+	//if err := v.Struct(user); err != nil {
+	//	http.Error(w, "Failed to validate request body", http.StatusBadRequest)
+	//	return
+	//}
 
 	// check user exist or not
 	exists, existsErr := dbHelper.IsUserExists(user.Email)
@@ -80,7 +80,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var hashedPassword, userID string
-	err := database.DB.QueryRow("SELECT id ,password  FROM users WHERE email = $1", creds.Email).Scan(&userID, &hashedPassword)
+	err := database.DB.QueryRow("SELECT id ,password FROM users WHERE email = $1", creds.Email).Scan(&userID, &hashedPassword)
 	if err != nil {
 		http.Error(w, "User not found", http.StatusUnauthorized)
 		return
@@ -93,15 +93,37 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SQL := `INSERT INTO user_session (user_id) VALUES ($1) returning id`
-	var sessonID string
-	err = database.DB.Get(&sessonID, SQL, userID)
+	//SQL := `INSERT INTO user_session (user_id) VALUES ($1) returning id`
+	//var sessionID string
+	//fmt.Println(SQL)
+	//err = database.DB.Get(&sessionID, SQL, userID)
+	//if err != nil {
+	//	http.Error(w, "Session not inserted in database", http.StatusInternalServerError)
+	//	return
+	//}
+	//var userSession models.Session
+	//query := `SELECT id, jwt_token, expires_at FROM user_session WHERE user_id = $1 LIMIT 1`
+	//err = database.DB.Get(&userSession, query, userID)
+	//if err != nil {
+	//	http.Error(w, "Session not found", http.StatusNotFound)
+	//	return
+	//}
+	//fmt.Println(sessionID)
+
+	tokenString, err := utils.GenerateJWT(userID)
 	if err != nil {
-		http.Error(w, "Session not inserted in database", http.StatusInternalServerError)
+		http.Error(w, "Failed to generate JWT", http.StatusInternalServerError)
+		return
 	}
 
+	///qu := `INSERT INTO user_session (user_id, jwt_token) VALUES ($1, $2)`
+	//_, err = database.DB.Exec(qu, userID, tokenString)
+	//if err != nil {
+	//	http.Error(w, "Failed to insert session", http.StatusInternalServerError)
+	//	return
+	//}
 	err = json.NewEncoder(w).Encode(map[string]string{
-		"token": sessonID,
+		"jwtToken": tokenString,
 	})
 	if err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
@@ -119,14 +141,14 @@ func Logout(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Missing session token", http.StatusBadRequest)
 		return
 	}
-	var expiry time.Time
-	err := database.DB.QueryRow(` SELECT expiry_at FROM user_session WHERE session_id = $1`, sessionToken).Scan(&expiry)
+	var expiry sql.NullTime
+	err := database.DB.QueryRow(` SELECT archived_at FROM user_session WHERE id = $1`, sessionToken).Scan(&expiry)
 	if err != nil {
 		http.Error(w, "Session not found", http.StatusNotFound)
 		return
 	}
 
-	_, err = database.DB.Exec(` UPDATE user_session SET expiry_at = $1 WHERE session_id = $2`, time.Now(), sessionToken)
+	_, err = database.DB.Exec(` UPDATE user_session SET archived_at = $1 WHERE id = $2`, time.Now(), sessionToken)
 	if err != nil {
 		http.Error(w, "Failed to update session", http.StatusInternalServerError)
 		return

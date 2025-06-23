@@ -19,13 +19,9 @@ CREATE TABLE IF NOT EXISTS todos
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     archived_at TIMESTAMP WITH TIME ZONE
 );
-CREATE UNIQUE INDEX IF NOT EXISTS unique_todo ON todos (user_id, name) WHERE archived_at IS NULL;
-
-CREATE TABLE IF NOT EXISTS user_session
-(
+CREATE TABLE IF NOT EXISTS user_session (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id  UUID REFERENCES users (id) NOT NULL,
-    created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    user_id UUID REFERENCES users (id) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     archived_at TIMESTAMP WITH TIME ZONE
-    expiry_at TIMESTAMP WITH TIME ZONE  NOW() INTERVAL + '7'
 );
